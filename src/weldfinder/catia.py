@@ -11,7 +11,6 @@ Assumptions:
 from __future__ import annotations
 
 import os
-import tempfile
 from dataclasses import dataclass
 
 from .step_io import Solid
@@ -32,17 +31,23 @@ def _norm(n: str) -> str:
 def match_visible(solids: list[Solid], bodies: list[CatiaBody]) -> tuple[list[Solid], str]:
     """Pick the STEP solids that correspond to visible CATIA bodies.
 
-    Returns (solids, how). Match by unique name first, then by order if the counts agree,
-    otherwise fall back to ALL solids (and say so) rather than guessing.
+    Returns (solids, how), `how` being "name", "order" or "none". Match by unique name first
+    (STEP names like "Part2#0" are tried with the "#k" suffix stripped too), then by order if the
+    counts agree. If neither works the match is "none" and ALL solids are returned: the caller
+    must warn that visibility was NOT applied.
     """
-    names = [_norm(b.name) for b in bodies]
-    snames = [_norm(s.name) for s in solids]
-    if len(set(names)) == len(names) and len(set(snames)) == len(snames) and set(names) <= set(snames):
-        vis = {n for n, b in zip(names, bodies) if b.visible}
-        return [s for s, n in zip(solids, snames) if n in vis], "name"
+    def strip(n: str) -> str:
+        return _norm(n.split("#")[0])
+
+    for key in (_norm, strip):
+        names = [_norm(b.name) for b in bodies]
+        snames = [key(s.name) for s in solids]
+        if len(set(names)) == len(names) and len(set(snames)) == len(snames) and set(names) <= set(snames):
+            vis = {n for n, b in zip(names, bodies) if b.visible}
+            return [s for s, n in zip(solids, snames) if n in vis], "name"
     if len(bodies) == len(solids):
         return [s for s, b in zip(solids, bodies) if b.visible], "order"
-    return list(solids), "unmatched: using all solids"
+    return list(solids), "none"
 
 
 # ---------------------------------------------------------------- COM access
@@ -73,6 +78,11 @@ def read_bodies(doc) -> list[CatiaBody]:
     bodies = doc.Part.Bodies
     for i in range(1, bodies.Count + 1):
         b = bodies.Item(i)
+        try:
+            if b.Shapes.Count == 0:  # empty body (e.g. unused PartBody) has no STEP solid
+                continue
+        except Exception:
+            pass
         sel.Clear()
         sel.Add(b)
         out.append(CatiaBody(b.Name, _get_show(sel)))
@@ -80,20 +90,26 @@ def read_bodies(doc) -> list[CatiaBody]:
     return out
 
 
-def find_step_file(doc) -> tuple[str, bool]:
-    """Return (path, is_temp_export). Prefer the file on disk; otherwise export from CATIA."""
+def find_step_file(doc) -> str:
+    """Locate the STEP file on disk; never exports from CATIA.
+
+    Tries the document's own path, a same-named .stp/.step beside it, then the only STEP file in
+    that folder. Raises FileNotFoundError if none is found (caller asks for the path).
+    """
     full = str(doc.FullName)
     if full.lower().endswith(STEP_EXTS) and os.path.isfile(full):
-        return full, False
+        return full
     stem = os.path.splitext(os.path.basename(full))[0]
     folder = str(getattr(doc, "Path", "") or "")
-    for ext in STEP_EXTS:
-        cand = os.path.join(folder, stem + ext)
-        if folder and os.path.isfile(cand):
-            return cand, False
-    out = os.path.join(tempfile.mkdtemp(prefix="weldfinder_"), stem or "model")
-    doc.ExportData(out, "stp")  # CATIA appends .stp
-    return out + ".stp", True
+    if folder and os.path.isdir(folder):
+        for ext in STEP_EXTS:
+            cand = os.path.join(folder, stem + ext)
+            if os.path.isfile(cand):
+                return cand
+        steps = [f for f in os.listdir(folder) if f.lower().endswith(STEP_EXTS)]
+        if len(steps) == 1:
+            return os.path.join(folder, steps[0])
+    raise FileNotFoundError(f"no STEP file found for {full}")
 
 
 def push_curve(doc, points: list[list[float]], name: str) -> str:

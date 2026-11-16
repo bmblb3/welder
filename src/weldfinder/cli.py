@@ -51,12 +51,21 @@ def cmd_catia(a) -> int:
     print(f"CATIA document: {doc.FullName}")
     bodies = catia.read_bodies(doc)
     print(f"{len(bodies)} bodies, {sum(b.visible for b in bodies)} visible")
-    path, tmp = catia.find_step_file(doc)
-    print(f"STEP source: {path}{' (exported from CATIA)' if tmp else ''}")
+    path = a.step_file
+    if not path:
+        try:
+            path = catia.find_step_file(doc)
+        except FileNotFoundError:
+            path = input("STEP file not found next to the part. Path to the .stp: ").strip().strip('"')
+    print(f"STEP source: {path}")
 
     solids = load_solids(path)
     solids, how = catia.match_visible(solids, bodies)
-    print(f"{len(solids)} visible solids (matched by {how})")
+    if how == "none":
+        print(f"WARNING: could not match {len(bodies)} CATIA bodies to {len(solids)} STEP solids "
+              "(by name or count): visibility NOT applied, using ALL solids.")
+    else:
+        print(f"{len(solids)} visible solids (matched by {how})")
     if len(solids) < 2:
         print("Need at least two visible solids.")
         return 1
@@ -72,7 +81,7 @@ def cmd_catia(a) -> int:
         print(f"--rank {a.rank} out of range ({len(cands)} candidates)")
         return 1
     c = cands[a.rank]
-    print(f"Pushing: {_summary(c, names)}")
+    print(f"{'Would push (dry run)' if a.dry_run else 'Pushing'}: {_summary(c, names)}")
     if not a.dry_run:
         gs = catia.push_curve(doc, c.points, f"WeldCandidate_{c.id}_{names[c.source]}_to_{names[c.target]}")
         print(f"Created geometrical set '{gs}' in CATIA ({time.time() - t0:.1f}s)")
@@ -102,6 +111,7 @@ def main(argv=None) -> int:
     d.set_defaults(fn=cmd_detect)
     c = sub.add_parser("catia", help="detect on the document open in CATIA and push one curve")
     c.add_argument("--rank", type=int, default=0, help="which candidate to push (0 = best score)")
+    c.add_argument("--step-file", help="the STEP file that was opened in CATIA (skips auto-detection)")
     c.add_argument("--dry-run", action="store_true", help="compute but do not touch CATIA's model")
     common(c)
     c.set_defaults(fn=cmd_catia)

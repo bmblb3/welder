@@ -26,7 +26,7 @@ target face (not on its boundary).
 ## Key assumptions & limitations (read before trusting results)
 * **CATIA bridge is untested against real CATIA** (written from API docs, no CATIA in dev env).
   Most likely first-run fixes: `GetShow` return handling, `HybridShapePolyline` availability,
-  how the STEP document is named/located (`find_step_file`; falls back to `ExportData`).
+  how the STEP document is named/located (`find_step_file` looks beside the part, then asks for the path; use `--step-file`; nothing is exported from CATIA).
 * CATIA bodies are matched to STEP solids by name, else by order if counts agree, else ALL solids
   are used (printed). A CATIA STEP export you do yourself may name things differently from the
   file you imported.
