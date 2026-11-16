@@ -1,5 +1,17 @@
+import os
+
 import FreeCAD
 import FreeCADGui
+
+
+def _icon(name):
+    # FreeCAD puts Mod/WeldFinder on sys.path, so locate our folder through an importable module
+    try:
+        import weldtools
+        base = os.path.dirname(os.path.abspath(weldtools.__file__))
+    except Exception:  # never let an icon problem stop the workbench registering
+        base = os.path.join(FreeCAD.getUserAppDataDir(), "Mod", "WeldFinder")
+    return os.path.join(base, "Resources", "icons", name)
 
 
 class _FindWelds:
@@ -8,7 +20,7 @@ class _FindWelds:
                 "ToolTip": "Select one or more solids, then find candidate weld curves "
                            "(edge near another solid's face). 1 selected: vs all visible solids; "
                            "2+: only between the selected.",
-                "Pixmap": ""}
+                "Pixmap": _icon("FindWelds.svg")}
 
     def IsActive(self):
         return FreeCAD.ActiveDocument is not None
@@ -36,7 +48,7 @@ class _FindWelds:
 
 class _Clear:
     def GetResources(self):
-        return {"MenuText": "Clear weld candidates", "ToolTip": "Remove the WeldCandidates group", "Pixmap": ""}
+        return {"MenuText": "Clear weld candidates", "ToolTip": "Remove the WeldCandidates group", "Pixmap": _icon("ClearWelds.svg")}
 
     def IsActive(self):
         return FreeCAD.ActiveDocument is not None
@@ -50,6 +62,7 @@ class _Clear:
 class WeldFinderWorkbench(Workbench):
     MenuText = "WeldFinder"
     ToolTip = "Prepare sheet-metal CAD for CFD: weld candidates"
+    Icon = _icon("FindWelds.svg")
 
     def Initialize(self):
         FreeCADGui.addCommand("WeldFinder_FindWelds", _FindWelds())
@@ -63,3 +76,4 @@ class WeldFinderWorkbench(Workbench):
 
 
 FreeCADGui.addWorkbench(WeldFinderWorkbench())
+FreeCAD.Console.PrintMessage("WeldFinder workbench loaded\n")
