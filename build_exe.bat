@@ -5,5 +5,5 @@ call .venv\Scripts\activate.bat
 pip install -e .[exe,dev] || exit /b 1
 pytest -q || exit /b 1
 pyinstaller --onefile --name weldfinder --collect-all OCP --hidden-import win32com.client ^
-  src\weldfinder\cli.py || exit /b 1
+  --paths src weldfinder_exe.py || exit /b 1
 echo Built dist\weldfinder.exe

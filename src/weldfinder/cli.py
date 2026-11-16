@@ -84,6 +84,8 @@ def main(argv=None) -> int:
     double_clicked = not argv
     if double_clicked:
         argv = ["catia"]
+    elif argv[0] not in ("detect", "catia", "-h", "--help"):
+        argv = ["catia"] + argv  # `weldfinder --dry-run` means `weldfinder catia --dry-run`
 
     def common(p):
         p.add_argument("--max-gap", type=float, default=5.0, help="max edge-to-face distance, mm")
