@@ -237,13 +237,20 @@ def _dedup(cands: list[Candidate], tol: float) -> list[Candidate]:
     return kept
 
 
-def detect(solids: list[Solid], prm: Params | None = None) -> list[Candidate]:
+def detect(solids: list[Solid], prm: Params | None = None, sources: set[str] | None = None,
+           targets: set[str] | None = None) -> list[Candidate]:
+    """Candidates over `solids`. `sources`/`targets` (solid ids) restrict which solids own the
+    edges / receive them; default: all solids both ways."""
     prm = prm or Params()
     boxes = {s.id: _box(s.shape, prm.max_gap) for s in solids}
     cands: list[Candidate] = []
     for a in solids:
+        if sources is not None and a.id not in sources:
+            continue
         edges = None
         for b in solids:
+            if targets is not None and b.id not in targets:
+                continue
             if a.id == b.id or boxes[a.id].IsOut(boxes[b.id]):
                 continue
             if edges is None:

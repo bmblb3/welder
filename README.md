@@ -1,5 +1,29 @@
 # weldfinder
 
+## FreeCAD buttons (current direction)
+Interactive tools for preparing sheet-metal CAD for CFD, as a FreeCAD workbench ("WeldFinder").
+Geometry work runs in the `weldfinder` engine (OCP/OCCT) inside FreeCAD's own Python.
+
+**Install (once, on any OS):** open FreeCAD (1.x), View > Panels > Python console, then
+    __file__ = r"C:\path\to\welder\freecad\install.py"; exec(open(__file__).read())
+It pip-installs `cadquery-ocp==7.7.2` into FreeCAD's Python (7.7.x on purpose: newer wheels need
+pip's VTK, which clashes with FreeCAD's) and copies the module to FreeCAD's user `Mod` folder.
+Restart FreeCAD and choose the **WeldFinder** workbench.
+
+**Button 1 - Find welds in selection:** select solid(s) in the tree/3D view, click it, enter the max
+gap. 1 solid selected -> searched against all other visible solids; 2+ -> only between those.
+Red curves appear in group `WeldCandidates` (label = ids, length, gap min/mean/max); re-running
+replaces them; "Clear weld candidates" removes them. Curves are geometric proximity, not weld intent.
+
+**Tests (no GUI):** `freecadcmd freecad/tests/test_flow.py` (prints `RESULT OK`), and `pytest` for the engine.
+
+**Status:** engine + flow tested headless on Linux (FreeCAD 1.1.4). NOT yet tested: the toolbar GUI
+(`InitGui.py`, no icons), Windows, a real silencer. FreeCAD's own `distToShape` costs ~5 ms/call, which
+is why the engine is OCP rather than pure FreeCAD.
+
+---
+## CATIA bridge (earlier approach, kept for reference; superseded by FreeCAD)
+
 Finds candidate weld curves (edge of one sheet-metal solid near a face of another) and pushes
 **one** of them into the CATIA V5 document you have open. Candidates are *geometric proximity*,
 not confirmed weld intent. Units: mm.
